@@ -5,10 +5,10 @@ export const handler: Handler = async (event) => {
     return { statusCode: 405, body: 'Method Not Allowed' }
   }
 
+  const serviceAccountJson = process.env.GCP_SERVICE_ACCOUNT
   const projectId = process.env.GCP_PROJECT_ID
-  const apiKey = process.env.GCP_ACCESS_TOKEN
 
-  if (!projectId || !apiKey) {
+  if (!serviceAccountJson || !projectId) {
     return { statusCode: 500, body: JSON.stringify({ error: 'GCP credentials not configured' }) }
   }
 
@@ -24,12 +24,16 @@ Ton élève s'appelle Mathias, basé à Tahiti. Il joue déjà bien — Never Go
 Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Davis. Maximum 300 mots sauf si nécessaire. Donne des exemples concrets avec des chansons connues.`
 
   try {
-    const url = `https://us-east5-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-6@20250514:rawPredict?key=${apiKey}`
+    const serviceAccount = JSON.parse(serviceAccountJson)
+    const accessToken = await getAccessToken(serviceAccount)
+
+    const url = `https://us-east5-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-6@20250514:rawPredict`
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         anthropic_version: 'vertex-2023-10-16',
@@ -53,4 +57,66 @@ Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Dav
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: String(err) }) }
   }
+}
+
+async function getAccessToken(serviceAccount: any): Promise<string> {
+  const now = Math.floor(Date.now() / 1000)
+  const header = { alg: 'RS256', typ: 'JWT' }
+  const payload = {
+    iss: serviceAccount.client_email,
+    scope: 'https://www.googleapis.com/auth/cloud-platform',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  }
+
+  const encode = (obj: object) =>
+    btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+
+  const headerB64 = encode(header)
+  const payloadB64 = encode(payload)
+  const signingInput = `${headerB64}.${payloadB64}`
+
+  const privateKey = serviceAccount.private_key
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    pemToArrayBuffer(privateKey),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
+  )
+
+  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+
+  const jwt = `${signingInput}.${signatureB64}`
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+  })
+
+  const tokenData = await tokenResponse.json()
+  return tokenData.access_token
+}
+
+function pemToArrayBuffer(pem: string): ArrayBuffer {
+  const base64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\n/g, '')
+  const binary = atob(base64)
+  const buffer = new ArrayBuffer(binary.length)
+  const view = new Uint8Array(buffer)
+  for (let i = 0; i < binary.length; i++) {
+    view[i] = binary.charCodeAt(i)
+  }
+  return buffer
 }
