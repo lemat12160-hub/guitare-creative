@@ -24,7 +24,8 @@ export function useClaude() {
       })
 
       if (!response.ok) {
-        throw new Error(`Erreur ${response.status}`)
+        const errText = await response.text()
+        throw new Error(`Erreur ${response.status}: ${errText}`)
       }
 
       const data = await response.json()
@@ -37,7 +38,7 @@ export function useClaude() {
 
       return assistantMessage
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erreur inconnue'
+      const msg = err instanceof Error ? err.message : JSON.stringify(err)
       setError(msg)
       return null
     } finally {
