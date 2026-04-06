@@ -24,13 +24,12 @@ Ton élève s'appelle Mathias, basé à Tahiti. Il joue déjà bien — Never Go
 Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Davis. Maximum 300 mots sauf si nécessaire. Donne des exemples concrets avec des chansons connues.`
 
   try {
-    const url = `https://us-east5-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-6@20250514:rawPredict`
+    const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/anthropic/models/claude-sonnet-4-6:rawPredict?key=${accessToken}`
 
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
         anthropic_version: 'vertex-2023-10-16',
