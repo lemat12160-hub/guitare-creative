@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import type { NavTab } from './types'
 import type { Key } from './data'
 import { RoueTab } from './components/RoueTab'
