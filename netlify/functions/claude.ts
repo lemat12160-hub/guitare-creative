@@ -27,7 +27,7 @@ Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Dav
     const serviceAccount = JSON.parse(serviceAccountJson)
     const accessToken = await getAccessToken(serviceAccount)
 
-    const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/anthropic/models/claude-sonnet-4-6:rawPredict`
+    const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/anthropic/models/claude-sonnet-4-6:rawPredict`
 
     const response = await fetch(url, {
       method: 'POST',
