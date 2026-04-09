@@ -27,7 +27,7 @@ Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Dav
     const serviceAccount = JSON.parse(serviceAccountJson)
     const accessToken = await getAccessToken(serviceAccount)
 
-    const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-2.0-flash-live-001:generateContent`
+    const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent`
 
     const messages = body.messages as { role: string; content: string }[]
     const contents = messages.map(m => ({
