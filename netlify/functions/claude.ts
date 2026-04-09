@@ -23,7 +23,7 @@ Ton élève s'appelle Mathias, basé à Tahiti. Il joue déjà bien — Never Go
 Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Davis. Maximum 300 mots sauf si nécessaire. Donne des exemples concrets avec des chansons connues.`
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`
 
     const messages = body.messages as { role: string; content: string }[]
     const contents = messages.map(m => ({
