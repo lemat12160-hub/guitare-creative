@@ -5,11 +5,10 @@ export const handler: Handler = async (event) => {
     return { statusCode: 405, body: 'Method Not Allowed' }
   }
 
-  const serviceAccountJson = process.env.GCP_SERVICE_ACCOUNT
-  const projectId = process.env.GCP_PROJECT_ID
+  const apiKey = process.env.GCP_ACCESS_TOKEN
 
-  if (!serviceAccountJson || !projectId) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'GCP credentials not configured' }) }
+  if (!apiKey) {
+    return { statusCode: 500, body: JSON.stringify({ error: 'API key not configured' }) }
   }
 
   let body: { messages: unknown[] }
@@ -24,10 +23,7 @@ Ton élève s'appelle Mathias, basé à Tahiti. Il joue déjà bien — Never Go
 Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Davis. Maximum 300 mots sauf si nécessaire. Donne des exemples concrets avec des chansons connues.`
 
   try {
-    const serviceAccount = JSON.parse(serviceAccountJson)
-    const accessToken = await getAccessToken(serviceAccount)
-
-    const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-3.1-pro-preview:generateContent`
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`
 
     const messages = body.messages as { role: string; content: string }[]
     const contents = messages.map(m => ({
@@ -37,10 +33,7 @@ Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Dav
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents,
@@ -62,72 +55,9 @@ Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Dav
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: [{ type: 'text', text }]
-      }),
+      body: JSON.stringify({ content: [{ type: 'text', text }] }),
     }
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: String(err) }) }
   }
-}
-
-async function getAccessToken(serviceAccount: any): Promise<string> {
-  const now = Math.floor(Date.now() / 1000)
-  const header = { alg: 'RS256', typ: 'JWT' }
-  const payload = {
-    iss: serviceAccount.client_email,
-    scope: 'https://www.googleapis.com/auth/cloud-platform',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  }
-
-  const encode = (obj: object) =>
-    btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
-
-  const headerB64 = encode(header)
-  const payloadB64 = encode(payload)
-  const signingInput = `${headerB64}.${payloadB64}`
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    pemToArrayBuffer(serviceAccount.private_key),
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
-
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    cryptoKey,
-    new TextEncoder().encode(signingInput)
-  )
-
-  const signatureB64 = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
-
-  const jwt = `${signingInput}.${signatureB64}`
-
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-  })
-
-  const tokenData = await tokenResponse.json()
-  return tokenData.access_token
-}
-
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const base64 = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\n/g, '')
-  const binary = atob(base64)
-  const buffer = new ArrayBuffer(binary.length)
-  const view = new Uint8Array(buffer)
-  for (let i = 0; i < binary.length; i++) {
-    view[i] = binary.charCodeAt(i)
-  }
-  return buffer
 }
