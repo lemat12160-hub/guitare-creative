@@ -27,7 +27,13 @@ Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Dav
     const serviceAccount = JSON.parse(serviceAccountJson)
     const accessToken = await getAccessToken(serviceAccount)
 
-    const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/anthropic/models/claude-sonnet-4-6:rawPredict`
+    const url = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-2.0-flash-001:generateContent`
+
+    const messages = body.messages as { role: string; content: string }[]
+    const contents = messages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }))
 
     const response = await fetch(url, {
       method: 'POST',
@@ -36,10 +42,12 @@ Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Dav
         'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({
-        anthropic_version: 'vertex-2023-10-16',
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: body.messages,
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents,
+        generationConfig: {
+          maxOutputTokens: 1024,
+          temperature: 0.7,
+        },
       }),
     })
 
@@ -49,10 +57,14 @@ Réponds toujours en français. Sois pratique, visuel, accessible comme Paul Dav
     }
 
     const data = await response.json()
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Désolé, je n\'ai pas pu répondre.'
+
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        content: [{ type: 'text', text }]
+      }),
     }
   } catch (err) {
     return { statusCode: 500, body: JSON.stringify({ error: String(err) }) }
@@ -77,10 +89,9 @@ async function getAccessToken(serviceAccount: any): Promise<string> {
   const payloadB64 = encode(payload)
   const signingInput = `${headerB64}.${payloadB64}`
 
-  const privateKey = serviceAccount.private_key
   const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
-    pemToArrayBuffer(privateKey),
+    pemToArrayBuffer(serviceAccount.private_key),
     { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false,
     ['sign']
